@@ -59,9 +59,7 @@ import {
   saveLocalWorkType,
   removeLocalWorkType,
   getLocalStudySessions,
-  saveLocalStudySession,
-  LocalWorkType,
-  LocalStudySession
+  saveLocalStudySession
 } from "@/lib/localStorage";
 
 type WorkType = {

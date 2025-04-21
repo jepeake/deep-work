@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { format } from "date-fns";
 import { useSession } from "next-auth/react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,8 +15,7 @@ import {
   getLocalTasks,
   saveLocalTask,
   updateLocalTask,
-  removeLocalTask,
-  LocalTask
+  removeLocalTask
 } from "@/lib/localStorage";
 
 type Task = {
@@ -81,7 +80,7 @@ export default function TaskList({
     } else if (isGuestMode) {
       loadLocalTasks();
     }
-  }, [status, isGuestMode]);
+  }, [status, isGuestMode, loadLocalTasks]);
 
   // Select first workType by default when available
   useEffect(() => {
@@ -90,7 +89,7 @@ export default function TaskList({
     }
   }, [workTypes, selectedWorkTypeId]);
 
-  const loadLocalTasks = () => {
+  const loadLocalTasks = useCallback(() => {
     try {
       setLoading(true);
       const localTasks = getLocalTasks();
@@ -117,7 +116,7 @@ export default function TaskList({
     } finally {
       setLoading(false);
     }
-  };
+  }, [workTypes]);
 
   const fetchTasks = async () => {
     try {
