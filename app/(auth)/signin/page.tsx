@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Github } from "lucide-react";
+import { Github, LogIn } from "lucide-react";
 import Link from "next/link";
 
 // Create a client component for the search params
@@ -23,6 +23,14 @@ function SignInForm() {
       router.push(callbackUrl);
     }
   }, [status, router, callbackUrl]);
+  
+  const handleContinueWithoutSignIn = () => {
+    // Set localStorage flag to indicate guest mode
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('guestMode', 'true');
+      router.push('/');
+    }
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,6 +47,8 @@ function SignInForm() {
       if (result?.error) {
         setError("Invalid email or password");
       } else if (result?.ok) {
+        // Clear guest mode if previously set
+        localStorage.removeItem('guestMode');
         router.push(callbackUrl);
       }
     } catch (error) {
@@ -64,6 +74,14 @@ function SignInForm() {
           onClick={() => signIn("github", { callbackUrl })}
         >
           <Github className="h-4 w-4" /> Continue with GitHub
+        </Button>
+        
+        <Button
+          variant="outline"
+          className="w-full flex items-center justify-center gap-2 text-black border-black/20 hover:bg-black/5"
+          onClick={handleContinueWithoutSignIn}
+        >
+          <LogIn className="h-4 w-4" /> Continue without signing in
         </Button>
         
         <div className="relative">

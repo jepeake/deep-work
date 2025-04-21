@@ -54,6 +54,15 @@ import {
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import TaskList from "@/components/TaskList";
+import {
+  getLocalWorkTypes,
+  saveLocalWorkType,
+  removeLocalWorkType,
+  getLocalStudySessions,
+  saveLocalStudySession,
+  LocalWorkType,
+  LocalStudySession
+} from "@/lib/localStorage";
 
 type WorkType = {
   id: string;
@@ -97,31 +106,60 @@ export function FlowAppComponent({ isDarkMode }: { isDarkMode: boolean }) {
 
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [isGuestMode, setIsGuestMode] = useState(false);
 
+  // Check for guest mode on component mount
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (typeof window !== 'undefined') {
+      const guestMode = localStorage.getItem('guestMode') === 'true';
+      setIsGuestMode(guestMode);
+    }
+  }, []);
+
+  // Only redirect to signin if not in guest mode and not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated" && !isGuestMode) {
       router.push("/signin");
     }
-  }, [status, router]);
+  }, [status, router, isGuestMode]);
 
+  // Load data based on auth state
   useEffect(() => {
-    if (status !== "authenticated") return;
     const loadData = async () => {
-      const [wtRes, shRes] = await Promise.all([
-        fetch("/api/work-types"),
-        fetch("/api/study-sessions"),
-      ]);
-      if (wtRes.ok) {
-        const wtData: WorkType[] = await wtRes.json();
-        setWorkTypes(wtData);
-      }
-      if (shRes.ok) {
-        const shData: StudySession[] = await shRes.json();
-        setStudyHistory(shData);
+      if (status === "authenticated") {
+        // Load from API if authenticated
+        const [wtRes, shRes] = await Promise.all([
+          fetch("/api/work-types"),
+          fetch("/api/study-sessions"),
+        ]);
+        if (wtRes.ok) {
+          const wtData: WorkType[] = await wtRes.json();
+          setWorkTypes(wtData);
+        }
+        if (shRes.ok) {
+          const shData: StudySession[] = await shRes.json();
+          setStudyHistory(shData);
+        }
+      } else if (isGuestMode) {
+        // Load from localStorage if in guest mode
+        const localWorkTypes = getLocalWorkTypes();
+        setWorkTypes(localWorkTypes);
+        
+        const localStudySessions = getLocalStudySessions();
+        const formattedSessions = localStudySessions.map(session => {
+          const workType = localWorkTypes.find(wt => wt.id === session.workTypeId);
+          return {
+            date: session.date,
+            duration: session.duration,
+            workType: workType?.label || "",
+          };
+        });
+        setStudyHistory(formattedSessions);
       }
     };
+    
     loadData();
-  }, [status]);
+  }, [status, isGuestMode]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -143,15 +181,26 @@ export function FlowAppComponent({ isDarkMode }: { isDarkMode: boolean }) {
           workType: selectedWorkType?.label || "",
         };
         setStudyHistory((prev) => [...prev, newSession]);
-        fetch("/api/study-sessions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        
+        if (status === "authenticated") {
+          // Save to API if authenticated
+          fetch("/api/study-sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              date: newSession.date,
+              duration: newSession.duration,
+              workTypeId: selectedWorkTypeId,
+            }),
+          });
+        } else if (isGuestMode) {
+          // Save to localStorage if in guest mode
+          saveLocalStudySession({
             date: newSession.date,
             duration: newSession.duration,
             workTypeId: selectedWorkTypeId,
-          }),
-        });
+          });
+        }
       }
       setSessionStartTime(null);
       setPausedTime(null);
@@ -160,7 +209,7 @@ export function FlowAppComponent({ isDarkMode }: { isDarkMode: boolean }) {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isActive, time, sessionStartTime, selectedWorkTypeId, workTypes]);
+  }, [isActive, time, sessionStartTime, selectedWorkTypeId, workTypes, status, isGuestMode]);
 
   const toggleTimer = useCallback(() => {
     if (!isActive) {
@@ -241,27 +290,42 @@ export function FlowAppComponent({ isDarkMode }: { isDarkMode: boolean }) {
 
   const addWorkType = useCallback(async () => {
     if (newWorkType && !workTypes.some(wt => wt.label === newWorkType)) {
-      const res = await fetch("/api/work-types", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: newWorkType }),
-      });
-      if (res.ok) {
-        const createdWorkType = await res.json();
+      if (status === "authenticated") {
+        // Add to API if authenticated
+        const res = await fetch("/api/work-types", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ label: newWorkType }),
+        });
+        if (res.ok) {
+          const createdWorkType = await res.json();
+          setWorkTypes((prev) => [...prev, createdWorkType]);
+          setNewWorkType("");
+        }
+      } else if (isGuestMode) {
+        // Add to localStorage if in guest mode
+        const createdWorkType = saveLocalWorkType(newWorkType);
         setWorkTypes((prev) => [...prev, createdWorkType]);
         setNewWorkType("");
       }
     }
-  }, [newWorkType, workTypes]);
+  }, [newWorkType, workTypes, status, isGuestMode]);
 
   const removeWorkType = useCallback(async (workTypeId: string) => {
-    const res = await fetch(`/api/work-types/${workTypeId}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
+    if (status === "authenticated") {
+      // Remove from API if authenticated
+      const res = await fetch(`/api/work-types/${workTypeId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setWorkTypes((prev) => prev.filter((type) => type.id !== workTypeId));
+      }
+    } else if (isGuestMode) {
+      // Remove from localStorage if in guest mode
+      removeLocalWorkType(workTypeId);
       setWorkTypes((prev) => prev.filter((type) => type.id !== workTypeId));
     }
-  }, []);
+  }, [status, isGuestMode]);
 
   const getWorkBreakdown = useCallback(() => {
     const today = new Date();
@@ -343,16 +407,44 @@ export function FlowAppComponent({ isDarkMode }: { isDarkMode: boolean }) {
         return existingType;
       }
       
-      const res = await fetch("/api/work-types", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label }),
-      });
-      
-      if (res.ok) {
-        const createdWorkType = await res.json();
+      if (status === "authenticated") {
+        // Add to API if authenticated
+        const res = await fetch("/api/work-types", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ label }),
+        });
         
-        // Update state with the new work type
+        if (res.ok) {
+          const createdWorkType = await res.json();
+          
+          // Update state with the new work type
+          setWorkTypes(prev => [...prev, createdWorkType]);
+          
+          // If no work type is currently selected, select this new one for the timer
+          if (!selectedWorkTypeId) {
+            setSelectedWorkTypeId(createdWorkType.id);
+          }
+          
+          return createdWorkType;
+        } else if (res.status === 400) {
+          // If the work type already exists on the server but not in our local state,
+          // we need to fetch the work types to get the existing one
+          const typesRes = await fetch("/api/work-types");
+          if (typesRes.ok) {
+            const allTypes = await typesRes.json();
+            setWorkTypes(allTypes);
+            
+            // Find the newly fetched work type with the matching label
+            const existingType = allTypes.find((wt: WorkType) => wt.label.toLowerCase() === label.toLowerCase());
+            if (existingType) {
+              return existingType;
+            }
+          }
+        }
+      } else if (isGuestMode) {
+        // Add to localStorage if in guest mode
+        const createdWorkType = saveLocalWorkType(label);
         setWorkTypes(prev => [...prev, createdWorkType]);
         
         // If no work type is currently selected, select this new one for the timer
@@ -361,25 +453,11 @@ export function FlowAppComponent({ isDarkMode }: { isDarkMode: boolean }) {
         }
         
         return createdWorkType;
-      } else if (res.status === 400) {
-        // If the work type already exists on the server but not in our local state,
-        // we need to fetch the work types to get the existing one
-        const typesRes = await fetch("/api/work-types");
-        if (typesRes.ok) {
-          const allTypes = await typesRes.json();
-          setWorkTypes(allTypes);
-          
-          // Find the newly fetched work type with the matching label
-          const existingType = allTypes.find((wt: WorkType) => wt.label.toLowerCase() === label.toLowerCase());
-          if (existingType) {
-            return existingType;
-          }
-        }
       }
     } catch (error) {
       console.error("Failed to create work type:", error);
     }
-  }, [workTypes, selectedWorkTypeId]);
+  }, [workTypes, selectedWorkTypeId, status, isGuestMode]);
 
   return (
     <div className={`min-h-screen ${isDarkMode ? "dark" : ""}`}>
@@ -400,6 +478,26 @@ export function FlowAppComponent({ isDarkMode }: { isDarkMode: boolean }) {
                 >
                   <LogOut className="h-3.5 w-3.5" />
                   <span>Sign out</span>
+                </Button>
+              </div>
+            )}
+            {isGuestMode && (
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-black/70" />
+                  <span className="text-sm font-medium">Guest Mode</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    localStorage.removeItem('guestMode');
+                    router.push('/signin');
+                  }}
+                  className="flex items-center gap-1 border-black/10 text-black/70 hover:bg-black/5"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Sign in</span>
                 </Button>
               </div>
             )}

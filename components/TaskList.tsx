@@ -11,6 +11,13 @@ import { CalendarIcon, Plus, Trash2, Tag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { WorkTypeSelect } from "@/components/WorkTypeSelect";
 import { DatePickerWithPresets } from "@/components/DatePickerWithPresets";
+import {
+  getLocalTasks,
+  saveLocalTask,
+  updateLocalTask,
+  removeLocalTask,
+  LocalTask
+} from "@/lib/localStorage";
 
 type Task = {
   id: string;
@@ -50,6 +57,15 @@ export default function TaskList({
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [isAddingTask, setIsAddingTask] = useState(showAddTaskForm);
   const [error, setError] = useState("");
+  const [isGuestMode, setIsGuestMode] = useState(false);
+
+  // Check for guest mode on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const guestMode = localStorage.getItem('guestMode') === 'true';
+      setIsGuestMode(guestMode);
+    }
+  }, []);
 
   // Update isAddingTask when showAddTaskForm prop changes
   useEffect(() => {
@@ -62,8 +78,10 @@ export default function TaskList({
   useEffect(() => {
     if (status === "authenticated") {
       fetchTasks();
+    } else if (isGuestMode) {
+      loadLocalTasks();
     }
-  }, [status]);
+  }, [status, isGuestMode]);
 
   // Select first workType by default when available
   useEffect(() => {
@@ -71,6 +89,35 @@ export default function TaskList({
       setSelectedWorkTypeId(workTypes[0].id);
     }
   }, [workTypes, selectedWorkTypeId]);
+
+  const loadLocalTasks = () => {
+    try {
+      setLoading(true);
+      const localTasks = getLocalTasks();
+      
+      const formattedTasks: Task[] = localTasks.map(task => {
+        const workType = workTypes.find(wt => wt.id === task.workTypeId) || { 
+          id: task.workTypeId, 
+          label: "Unknown" 
+        };
+        
+        return {
+          id: task.id,
+          title: task.title,
+          completed: task.completed,
+          dueDate: task.dueDate,
+          workTypeId: task.workTypeId,
+          workType: workType
+        };
+      });
+      
+      setTasks(formattedTasks);
+    } catch (error) {
+      console.error("Failed to load local tasks:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchTasks = async () => {
     try {
@@ -96,26 +143,63 @@ export default function TaskList({
 
     try {
       setError("");
-      const res = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: newTask.trim(),
-          workTypeId: selectedWorkTypeId,
-          dueDate: selectedDate ? selectedDate.toISOString() : null,
-        }),
-      });
+      
+      if (status === "authenticated") {
+        // Add to API if authenticated
+        const res = await fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: newTask.trim(),
+            workTypeId: selectedWorkTypeId,
+            dueDate: selectedDate ? selectedDate.toISOString() : null,
+          }),
+        });
 
-      if (res.ok) {
-        const createdTask = await res.json();
-        setTasks((prev) => [createdTask, ...prev]);
-        setNewTask("");
-        setSelectedDate(undefined);
-        setIsAddingTask(false);
-        if (onAddTaskFormClose) onAddTaskFormClose();
-      } else {
-        const error = await res.json();
-        setError(error.message || "Failed to create task");
+        if (res.ok) {
+          const createdTask = await res.json();
+          setTasks((prev) => [createdTask, ...prev]);
+          setNewTask("");
+          setSelectedDate(undefined);
+          setIsAddingTask(false);
+          if (onAddTaskFormClose) onAddTaskFormClose();
+        } else {
+          const error = await res.json();
+          setError(error.message || "Failed to create task");
+        }
+      } else if (isGuestMode) {
+        // Add to localStorage if in guest mode
+        try {
+          const newLocalTask = saveLocalTask({
+            title: newTask.trim(),
+            workTypeId: selectedWorkTypeId,
+            completed: false,
+            dueDate: selectedDate ? selectedDate.toISOString() : null,
+          });
+          
+          const workType = workTypes.find(wt => wt.id === selectedWorkTypeId) || { 
+            id: selectedWorkTypeId, 
+            label: "Unknown" 
+          };
+          
+          const formattedTask: Task = {
+            id: newLocalTask.id,
+            title: newLocalTask.title,
+            completed: newLocalTask.completed,
+            dueDate: newLocalTask.dueDate,
+            workTypeId: newLocalTask.workTypeId,
+            workType: workType
+          };
+          
+          setTasks((prev) => [formattedTask, ...prev]);
+          setNewTask("");
+          setSelectedDate(undefined);
+          setIsAddingTask(false);
+          if (onAddTaskFormClose) onAddTaskFormClose();
+        } catch (error) {
+          console.error("Error creating local task:", error);
+          setError("Failed to create task");
+        }
       }
     } catch (error) {
       console.error("Error creating task:", error);
@@ -134,22 +218,37 @@ export default function TaskList({
         )
       );
 
-      const res = await fetch("/api/tasks", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: task.id,
-          completed: newStatus,
-        }),
-      });
+      if (status === "authenticated") {
+        // Update in API if authenticated
+        const res = await fetch("/api/tasks", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: task.id,
+            completed: newStatus,
+          }),
+        });
 
-      if (!res.ok) {
-        // Revert on error
-        setTasks((prev) =>
-          prev.map((t) =>
-            t.id === task.id ? { ...t, completed: task.completed } : t
-          )
-        );
+        if (!res.ok) {
+          // Revert on error
+          setTasks((prev) =>
+            prev.map((t) =>
+              t.id === task.id ? { ...t, completed: task.completed } : t
+            )
+          );
+        }
+      } else if (isGuestMode) {
+        // Update in localStorage if in guest mode
+        const updated = updateLocalTask(task.id, { completed: newStatus });
+        
+        if (!updated) {
+          // Revert on error
+          setTasks((prev) =>
+            prev.map((t) =>
+              t.id === task.id ? { ...t, completed: task.completed } : t
+            )
+          );
+        }
       }
     } catch (error) {
       console.error("Error updating task:", error);
@@ -161,17 +260,31 @@ export default function TaskList({
       // Optimistic delete
       setTasks((prev) => prev.filter((t) => t.id !== id));
 
-      const res = await fetch(`/api/tasks?id=${id}`, {
-        method: "DELETE",
-      });
+      if (status === "authenticated") {
+        // Delete from API if authenticated
+        const res = await fetch(`/api/tasks?id=${id}`, {
+          method: "DELETE",
+        });
 
-      if (!res.ok) {
-        // Restore on error
-        await fetchTasks();
+        if (!res.ok) {
+          // Restore on error
+          if (status === "authenticated") {
+            await fetchTasks();
+          } else if (isGuestMode) {
+            loadLocalTasks();
+          }
+        }
+      } else if (isGuestMode) {
+        // Delete from localStorage if in guest mode
+        removeLocalTask(id);
       }
     } catch (error) {
       console.error("Error deleting task:", error);
-      await fetchTasks();
+      if (status === "authenticated") {
+        await fetchTasks();
+      } else if (isGuestMode) {
+        loadLocalTasks();
+      }
     }
   };
 
@@ -204,23 +317,26 @@ export default function TaskList({
       }
       
       // Fallback to direct API call if parent handler wasn't provided or didn't return a result
-      const res = await fetch("/api/work-types", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label }),
-      });
-      
-      if (res.ok) {
-        const createdWorkType = await res.json();
-        setSelectedWorkTypeId(createdWorkType.id);
-        await fetchTasks();
+      if (status === "authenticated") {
+        const res = await fetch("/api/work-types", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ label }),
+        });
+        
+        if (res.ok) {
+          const createdWorkType = await res.json();
+          setSelectedWorkTypeId(createdWorkType.id);
+          await fetchTasks();
+        }
       }
     } catch (error) {
       console.error("Failed to create work type:", error);
     }
   };
 
-  if (status !== "authenticated") {
+  // Show tasks even in guest mode
+  if (status !== "authenticated" && !isGuestMode) {
     return <p className="text-center text-sm py-4">Sign in to manage tasks</p>;
   }
 
