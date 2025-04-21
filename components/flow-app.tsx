@@ -52,7 +52,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import TaskList from "@/components/TaskList";
 import {
   getLocalWorkTypes,
@@ -103,7 +102,6 @@ export function FlowAppComponent({ isDarkMode }: { isDarkMode: boolean }) {
   ));
 
   const { data: session, status } = useSession();
-  const router = useRouter();
   const [isGuestMode, setIsGuestMode] = useState(false);
 
   // Check for guest mode on component mount
