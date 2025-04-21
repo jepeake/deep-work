@@ -8,6 +8,10 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+  	fontFamily: {
+  		serif: ['var(--font-baskerville)', 'Georgia', 'serif'],
+  		sans: ['var(--font-baskerville)', 'Georgia', 'serif'],
+  	},
   	extend: {
   		colors: {
   			background: 'hsl(var(--background))',
