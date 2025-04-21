@@ -38,7 +38,7 @@ export default function TaskList({
 }: {
   workTypes: WorkType[];
   className?: string;
-  onAddWorkType?: (label: string) => void;
+  onAddWorkType?: (label: string) => Promise<WorkType | undefined>;
   showAddTaskForm?: boolean;
   onAddTaskFormClose?: () => void;
 }) {
