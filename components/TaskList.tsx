@@ -73,22 +73,6 @@ export default function TaskList({
     }
   }, [showAddTaskForm]);
 
-  // Load tasks on mount and when user signs in
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchTasks();
-    } else if (isGuestMode) {
-      loadLocalTasks();
-    }
-  }, [status, isGuestMode, loadLocalTasks]);
-
-  // Select first workType by default when available
-  useEffect(() => {
-    if (workTypes.length > 0 && !selectedWorkTypeId) {
-      setSelectedWorkTypeId(workTypes[0].id);
-    }
-  }, [workTypes, selectedWorkTypeId]);
-
   const loadLocalTasks = useCallback(() => {
     try {
       setLoading(true);
@@ -117,6 +101,22 @@ export default function TaskList({
       setLoading(false);
     }
   }, [workTypes]);
+
+  // Load tasks on mount and when user signs in
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchTasks();
+    } else if (isGuestMode) {
+      loadLocalTasks();
+    }
+  }, [status, isGuestMode, loadLocalTasks]);
+
+  // Select first workType by default when available
+  useEffect(() => {
+    if (workTypes.length > 0 && !selectedWorkTypeId) {
+      setSelectedWorkTypeId(workTypes[0].id);
+    }
+  }, [workTypes, selectedWorkTypeId]);
 
   const fetchTasks = async () => {
     try {
