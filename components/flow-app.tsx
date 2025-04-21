@@ -824,7 +824,7 @@ export function FlowAppComponent({ isDarkMode }: { isDarkMode: boolean }) {
                         />
                         <Bar 
                           dataKey="total" 
-                          fill="#ffffff"
+                          fill="#000000"
                           radius={[4, 4, 0, 0]}
                           barSize={20}
                         />
