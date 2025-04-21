@@ -116,10 +116,15 @@ export function FlowAppComponent({ isDarkMode }: { isDarkMode: boolean }) {
 
   // Only redirect to signin if not in guest mode and not authenticated
   useEffect(() => {
-    if (status === "unauthenticated" && !isGuestMode) {
-      router.push("/signin");
-    }
-  }, [status, router, isGuestMode]);
+    // Add a small delay to ensure isGuestMode state is updated
+    const checkAuthStatus = setTimeout(() => {
+      if (status === "unauthenticated" && !isGuestMode) {
+        window.location.href = "/signin";
+      }
+    }, 100);
+    
+    return () => clearTimeout(checkAuthStatus);
+  }, [status, isGuestMode]);
 
   // Load data based on auth state
   useEffect(() => {
@@ -490,7 +495,7 @@ export function FlowAppComponent({ isDarkMode }: { isDarkMode: boolean }) {
                   size="sm"
                   onClick={() => {
                     localStorage.removeItem('guestMode');
-                    router.push('/signin');
+                    window.location.href = '/signin';
                   }}
                   className="flex items-center gap-1 border-black/10 text-black/70 hover:bg-black/5"
                 >

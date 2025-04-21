@@ -28,7 +28,8 @@ function SignInForm() {
     // Set localStorage flag to indicate guest mode
     if (typeof window !== 'undefined') {
       localStorage.setItem('guestMode', 'true');
-      router.push('/');
+      // Use direct window location instead of router for more reliable navigation
+      window.location.href = '/';
     }
   };
 
