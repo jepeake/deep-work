@@ -75,7 +75,7 @@ export function DatePickerWithPresets({
           initialFocus
           className="border-t border-black/10 dark:border-white/10 text-black dark:text-white"
           formatters={{ formatWeekdayName: () => "" }}
-          hidden={["head"]}
+          hidden={{ head: true }}
         />
       </PopoverContent>
     </Popover>
