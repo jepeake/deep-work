@@ -28,7 +28,6 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Legend,
   PieChart,
   Pie,
   Cell,
@@ -40,8 +39,6 @@ import {
   Clock,
   Calendar,
   BarChart2,
-  Moon,
-  Sun,
   Plus,
   X,
   PieChartIcon,
@@ -54,11 +51,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import TaskList from "@/components/TaskList";
 
 type WorkType = {
@@ -71,17 +65,6 @@ type StudySession = {
   duration: number;
   workType: string;
 };
-
-const chartColors = [
-  "#0366d6",
-  "#2188ff", 
-  "#79b8ff",
-  "#c8e1ff",
-  "#0a5ae1",
-  "#044289",
-  "#032f62",
-  "#05264c",
-];
 
 export function FlowAppComponent({ isDarkMode }: { isDarkMode: boolean }) {
   const [time, setTime] = useState(60 * 60);

@@ -1,18 +1,12 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Clock, CheckSquare, Settings, User, LogOut } from "lucide-react";
+import { User, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import { useSession, signOut } from "next-auth/react";
 
-export default function Navigation({ isDarkMode, toggleDarkMode }: { 
-  isDarkMode: boolean;
-  toggleDarkMode: (value: boolean) => void;
-}) {
-  const pathname = usePathname();
-  const { data: session, status } = useSession();
+export default function Navigation() {
+  const { status } = useSession();
   
   const handleSignOut = () => {
     signOut({ callbackUrl: '/signin' });
@@ -39,28 +33,5 @@ export default function Navigation({ isDarkMode, toggleDarkMode }: {
         </div>
       </div>
     </div>
-  );
-}
-
-function NavLink({ href, active, icon }: {
-  href: string;
-  active: boolean;
-  icon: React.ReactNode;
-}) {
-  return (
-    <Link href={href} className="relative">
-      <div className={`flex items-center justify-center h-10 w-10 rounded-md ${active ? 'text-black' : 'text-black/40 hover:text-black/60'}`}>
-        <div className="text-xl">{icon}</div>
-        
-        {active && (
-          <motion.div 
-            layoutId="nav-indicator"
-            className="absolute -bottom-1 w-6 h-0.5 bg-black rounded-full"
-            initial={false}
-            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-          />
-        )}
-      </div>
-    </Link>
   );
 } 

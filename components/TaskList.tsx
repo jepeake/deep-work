@@ -3,11 +3,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { useSession } from "next-auth/react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, Plus, Trash2, X, Tag, CheckSquare } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Tag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { WorkTypeSelect } from "@/components/WorkTypeSelect";
 import { DatePickerWithPresets } from "@/components/DatePickerWithPresets";
@@ -42,7 +42,7 @@ export default function TaskList({
   showAddTaskForm?: boolean;
   onAddTaskFormClose?: () => void;
 }) {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState("");

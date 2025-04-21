@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { FlowAppComponent } from "@/components/flow-app";
-import Navigation from "@/components/Navigation";
 
 export default function Page() {
   const [isDarkMode, setIsDarkMode] = useState(true);
